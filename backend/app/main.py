@@ -1,5 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from sqlalchemy import text
+from app.db.session import engine
 
 app = FastAPI(
     title="RecoverAI",
@@ -23,4 +25,14 @@ def root():
 
 @app.get("/health")
 def health():
-    return {"status": "healthy"}
+    try:
+        with engine.connect() as conn:
+            conn.execute(text("SELECT 1"))
+        db_status = "healthy"
+    except Exception as e:
+        db_status = f"unhealthy: {str(e)}"
+
+    return {
+        "status": "healthy",
+        "database": db_status,
+    }
