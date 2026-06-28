@@ -5,6 +5,8 @@ anyio==4.14.1
 arq==0.28.0
 bcrypt==5.0.0
 click==8.4.2
+dnspython==2.8.0
+email-validator==2.3.0
 fastapi==0.138.1
 h11==0.16.0
 hiredis==3.4.0
