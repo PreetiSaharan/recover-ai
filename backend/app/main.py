@@ -3,6 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import text
 from app.db.session import engine
 from app.api.routes.auth import router as auth_router
+from app.api.routes import borrowers
 
 app = FastAPI(
     title="RecoverAI",
@@ -19,6 +20,7 @@ app.add_middleware(
 )
 
 app.include_router(auth_router)
+app.include_router(borrowers.router, prefix="/borrowers", tags=["borrowers"])
 
 @app.get("/")
 def root():
