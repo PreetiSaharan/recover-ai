@@ -22,6 +22,7 @@ from app.db.base import Base
 from app.models.user import User  # we will add more models here later
 from app.models.borrower import Borrower
 from app.models.nbfc import Nbfc
+from app.models.csv_upload import CsvUpload
 
 target_metadata = Base.metadata
 

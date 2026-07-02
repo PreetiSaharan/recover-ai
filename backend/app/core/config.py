@@ -14,6 +14,7 @@ class Settings(BaseSettings):
     REDIS_URL: str
 
     # MinIO
+    MINIO_ENDPOINT: str = "localhost:9000"
     MINIO_ROOT_USER: str
     MINIO_ROOT_PASSWORD: str
 
