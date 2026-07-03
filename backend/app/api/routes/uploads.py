@@ -1,6 +1,9 @@
 from fastapi import APIRouter, Depends, UploadFile, File, HTTPException
 from sqlalchemy.orm import Session
 import uuid
+import arq
+import arq.connections
+from app.core.config import settings
 
 from app.db.session import get_db
 from app.api.deps import get_current_user
@@ -13,7 +16,7 @@ router = APIRouter()
 
 
 @router.post("/csv", response_model=CsvUploadResponse)
-def upload_csv(
+async def upload_csv(
     file: UploadFile = File(...),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
@@ -49,6 +52,16 @@ def upload_csv(
     db.add(upload)
     db.commit()
     db.refresh(upload)
+
+     # fire the background job
+    redis = await arq.create_pool(
+        arq.connections.RedisSettings(
+            host=settings.REDIS_HOST,
+            port=settings.REDIS_PORT,
+        )
+    )
+    await redis.enqueue_job("process_csv_upload", str(upload.id))
+    await redis.close()
 
     return upload
 
