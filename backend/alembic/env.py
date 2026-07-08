@@ -23,6 +23,7 @@ from app.models.user import User  # we will add more models here later
 from app.models.borrower import Borrower
 from app.models.nbfc import Nbfc
 from app.models.csv_upload import CsvUpload
+from app.models.interaction_log import InteractionLog
 
 target_metadata = Base.metadata
 
