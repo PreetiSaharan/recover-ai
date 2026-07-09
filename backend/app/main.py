@@ -8,6 +8,7 @@ from app.api.routes import uploads
 from app.models.nbfc import Nbfc
 from app.api.routes import interactions
 from app.api.routes import users
+from app.api.routes import assignments
 
 
 app = FastAPI(
@@ -29,6 +30,7 @@ app.include_router(borrowers.router, prefix="/borrowers", tags=["borrowers"])
 app.include_router(uploads.router, prefix="/uploads", tags=["uploads"])
 app.include_router(interactions.router, prefix="/interactions", tags=["interactions"])
 app.include_router(users.router, prefix="/users", tags=["users"])
+app.include_router(assignments.router, prefix="/assignments", tags=["assignments"])
 
 @app.get("/")
 def root():

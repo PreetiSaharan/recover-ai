@@ -24,6 +24,7 @@ from app.models.borrower import Borrower
 from app.models.nbfc import Nbfc
 from app.models.csv_upload import CsvUpload
 from app.models.interaction_log import InteractionLog
+from app.models.case_assignment import CaseAssignment
 
 target_metadata = Base.metadata
 
