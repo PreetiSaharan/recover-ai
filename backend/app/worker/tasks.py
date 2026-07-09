@@ -5,7 +5,6 @@ from datetime import datetime, timezone
 from sqlalchemy.orm import Session
 
 from app.db.session import SessionLocal
-from app.core.minio_client import get_minio_client, BUCKET_NAME
 from app.models.nbfc import Nbfc  # noqa: F401
 from app.models.user import User  # noqa: F401
 from app.models.csv_upload import CsvUpload, UploadStatus
@@ -48,12 +47,15 @@ def compute_priority_reason(sma_bucket: SmaBucket, dpd_days: int) -> str:
         return f"NPA — {dpd_days} days overdue. Field visit required for recovery."
 
 
-async def process_csv_upload(ctx, upload_id: str):
+async def process_csv_upload(ctx, upload_id: str, csv_content: str = None):
     """
-    ARQ background task — parses CSV from MinIO and upserts borrower records.
+    ARQ background task — parses CSV and upserts borrower records.
+
+    csv_content is provided directly (production, no file storage) or, if
+    None, is downloaded from MinIO using the upload's stored object key
+    (local dev).
     """
     db: Session = SessionLocal()
-    minio = get_minio_client()
 
     try:
         # 1. fetch the upload record
@@ -66,13 +68,19 @@ async def process_csv_upload(ctx, upload_id: str):
         upload.processing_started_at = datetime.now(timezone.utc)
         db.commit()
 
-        # 2. download CSV from MinIO
-        response = minio.get_object(BUCKET_NAME, upload.minio_object_key)
-        csv_bytes = response.read()
-        response.close()
+        # 2. get CSV content — either from memory (production) or MinIO (local dev)
+        if csv_content is not None:
+            csv_text = csv_content
+        else:
+            from app.core.minio_client import get_minio_client, BUCKET_NAME
+
+            minio = get_minio_client()
+            response = minio.get_object(BUCKET_NAME, upload.minio_object_key)
+            csv_bytes = response.read()
+            response.close()
+            csv_text = csv_bytes.decode("utf-8")
 
         # 3. parse CSV
-        csv_text = csv_bytes.decode("utf-8")
         reader = csv.DictReader(io.StringIO(csv_text))
         rows = list(reader)
 

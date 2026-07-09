@@ -11,7 +11,6 @@ from app.api.deps import get_current_user
 from app.models.user import User
 from app.models.csv_upload import CsvUpload, UploadStatus
 from app.schemas.csv_upload import CsvUploadResponse
-from app.core.minio_client import get_minio_client, BUCKET_NAME
 
 router = APIRouter()
 
@@ -25,24 +24,25 @@ async def upload_csv(
     if not file.filename.endswith(".csv"):
         raise HTTPException(status_code=400, detail="Only CSV files are accepted")
 
+    file_bytes = await file.read()
+
     object_key = f"uploads/{current_user.id}/{uuid.uuid4()}.csv"
 
-    # upload to MinIO
-    minio = get_minio_client()
-    try:
-        file_bytes = file.file.read()
-        file_size = len(file_bytes)
-
+    if settings.USE_MINIO:
+        from app.core.minio_client import get_minio_client, BUCKET_NAME
         import io
-        minio.put_object(
-            bucket_name=BUCKET_NAME,
-            object_name=object_key,
-            data=io.BytesIO(file_bytes),
-            length=file_size,
-            content_type="text/csv",
-        )
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"MinIO upload failed: {str(e)}")
+
+        minio = get_minio_client()
+        try:
+            minio.put_object(
+                bucket_name=BUCKET_NAME,
+                object_name=object_key,
+                data=io.BytesIO(file_bytes),
+                length=len(file_bytes),
+                content_type="text/csv",
+            )
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"MinIO upload failed: {str(e)}")
 
     # create upload record in DB
     upload = CsvUpload(
@@ -55,14 +55,17 @@ async def upload_csv(
     db.commit()
     db.refresh(upload)
 
-     # fire the background job
+    # fire the background job
     redis = await arq.create_pool(
         arq.connections.RedisSettings(
             host=settings.REDIS_HOST,
             port=settings.REDIS_PORT,
         )
     )
-    await redis.enqueue_job("process_csv_upload", str(upload.id))
+    if settings.USE_MINIO:
+        await redis.enqueue_job("process_csv_upload", str(upload.id), None)
+    else:
+        await redis.enqueue_job("process_csv_upload", str(upload.id), file_bytes.decode("utf-8"))
     await redis.close()
 
     return upload

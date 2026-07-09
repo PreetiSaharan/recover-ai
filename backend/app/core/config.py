@@ -28,6 +28,9 @@ class Settings(BaseSettings):
     # App
     ENVIRONMENT: str = "development"
 
+    # Uploads — true for local dev (uses MinIO via Docker), false/unset in production
+    USE_MINIO: bool = False
+
     def model_post_init(self, __context):
         if not self.DATABASE_URL:
             object.__setattr__(
