@@ -74,7 +74,7 @@ export default function DashboardPage() {
   const [loggedBorrowerIds, setLoggedBorrowerIds] = useState<Set<string>>(new Set())
   const [activePtpCount, setActivePtpCount] = useState(0)
   const [isLoading, setIsLoading] = useState(true)
-  const { assignments, setAssignee, markContacted } = useAssignments()
+  const { assignments, setAssignee, bulkSetAssignee, markContacted } = useAssignments()
   const [selected, setSelected] = useState<Set<string>>(new Set())
 
   const [search, setSearch] = useState("")
@@ -134,22 +134,28 @@ export default function DashboardPage() {
     return users.find((u) => u.id === id)?.full_name ?? "Unassigned"
   }
 
-  function handleAutoAssign() {
+  async function handleAutoAssign() {
     if (users.length === 0) return
-    let i = 0
-    borrowers.forEach((b) => {
-      if (statusOf(b.id) === "unassigned") {
-        setAssignee(b.id, users[i % users.length].id)
-        i += 1
-      }
+    const unassigned = borrowers.filter((b) => statusOf(b.id) === "unassigned")
+    if (unassigned.length === 0) return
+
+    // round-robin distribute unassigned borrowers across agents, one bulk call per agent
+    const byAgent = new Map<string, string[]>()
+    unassigned.forEach((b, i) => {
+      const agentId = users[i % users.length].id
+      byAgent.set(agentId, [...(byAgent.get(agentId) ?? []), b.id])
     })
+
+    await Promise.all(
+      Array.from(byAgent.entries()).map(([agentId, borrowerIds]) => bulkSetAssignee(borrowerIds, agentId))
+    )
     toast.success("Unassigned accounts auto-assigned")
   }
 
-  function handleBulkAssign(assigneeId: string) {
+  async function handleBulkAssign(assigneeId: string) {
     if (!assigneeId) return
-    selected.forEach((id) => setAssignee(id, assigneeId))
     const agent = users.find((u) => u.id === assigneeId)
+    await bulkSetAssignee([...selected], assigneeId)
     toast.success(`Assigned ${selected.size} borrower${selected.size === 1 ? "" : "s"} to ${agent?.full_name}`)
     setSelected(new Set())
     setBulkAssignee("")
@@ -482,7 +488,13 @@ export default function DashboardPage() {
                   <TableCell>
                     <Select
                       value={assignments[b.id]?.assigneeId ?? "unassigned"}
-                      onValueChange={(v) => setAssignee(b.id, v === "unassigned" ? null : v)}
+                      onValueChange={(v) =>
+                        setAssignee(
+                          b.id,
+                          v === "unassigned" ? null : v,
+                          b.priority_action === "field_visit" ? "field_visit" : "telecall"
+                        )
+                      }
                     >
                       <SelectTrigger size="sm" className="w-32">
                         <SelectValue>{assigneeNameOf(b.id)}</SelectValue>

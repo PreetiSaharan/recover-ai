@@ -63,6 +63,20 @@ export interface CsvUploadRecord {
   completed_at: string | null
 }
 
+export type CaseAssignmentType = "telecall" | "field_visit"
+export type CaseAssignmentStatus = "pending" | "in_progress" | "completed" | "unactioned"
+
+export interface AssignmentRecord {
+  id: string
+  borrower_id: string
+  assigned_to: string
+  assigned_by: string
+  assignment_type: CaseAssignmentType
+  date: string
+  status: CaseAssignmentStatus
+  created_at: string
+}
+
 export interface InteractionLog {
   id: string
   borrower_id: string
