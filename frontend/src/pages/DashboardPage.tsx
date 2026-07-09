@@ -49,6 +49,14 @@ const PRIORITY_ACTION_LABELS: Record<PriorityAction, string> = {
 
 type RowStatus = "unassigned" | "assigned" | "contacted" | "logged"
 
+const STATUS_FILTER_LABELS: Record<string, string> = {
+  all: "All Statuses",
+  unassigned: "Unassigned",
+  assigned: "Assigned",
+  contacted: "Contacted",
+  logged: "Logged",
+}
+
 const PAGE_SIZE = 10
 
 function formatCurrency(value: string | number | null) {
@@ -349,10 +357,10 @@ export default function DashboardPage() {
           <div className="ml-auto flex flex-wrap items-center gap-2">
             <Select value={smaFilter} onValueChange={(v) => setSmaFilter(v ?? "all")}>
               <SelectTrigger className="w-32" size="sm">
-                <SelectValue placeholder="All buckets" />
+                <SelectValue>{smaFilter === "all" ? "All Buckets" : smaFilter}</SelectValue>
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">All buckets</SelectItem>
+                <SelectItem value="all">All Buckets</SelectItem>
                 {SMA_BUCKETS.map((b) => (
                   <SelectItem key={b} value={b}>
                     {b}
@@ -363,10 +371,10 @@ export default function DashboardPage() {
 
             <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v ?? "all")}>
               <SelectTrigger className="w-36" size="sm">
-                <SelectValue placeholder="All statuses" />
+                <SelectValue>{STATUS_FILTER_LABELS[statusFilter]}</SelectValue>
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">All statuses</SelectItem>
+                <SelectItem value="all">All Statuses</SelectItem>
                 <SelectItem value="unassigned">Unassigned</SelectItem>
                 <SelectItem value="assigned">Assigned</SelectItem>
                 <SelectItem value="contacted">Contacted</SelectItem>
@@ -376,10 +384,16 @@ export default function DashboardPage() {
 
             <Select value={assigneeFilter} onValueChange={(v) => setAssigneeFilter(v ?? "all")}>
               <SelectTrigger className="w-36" size="sm">
-                <SelectValue placeholder="All agents" />
+                <SelectValue>
+                  {assigneeFilter === "all"
+                    ? "All Agents"
+                    : assigneeFilter === "unassigned"
+                      ? "Unassigned"
+                      : (users.find((u) => u.id === assigneeFilter)?.full_name ?? "All Agents")}
+                </SelectValue>
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">All agents</SelectItem>
+                <SelectItem value="all">All Agents</SelectItem>
                 <SelectItem value="unassigned">Unassigned</SelectItem>
                 {users.map((u) => (
                   <SelectItem key={u.id} value={u.id}>

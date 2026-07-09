@@ -148,7 +148,7 @@ export function LogOutcomeDialog({
             <Label>Outcome</Label>
             <Select value={outcome} onValueChange={(v) => v && setOutcome(v as InteractionOutcome)}>
               <SelectTrigger className="w-full">
-                <SelectValue />
+                <SelectValue>{OUTCOME_OPTIONS.find((o) => o.value === outcome)?.label}</SelectValue>
               </SelectTrigger>
               <SelectContent>
                 {OUTCOME_OPTIONS.map((o) => (
