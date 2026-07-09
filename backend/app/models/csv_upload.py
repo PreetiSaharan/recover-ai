@@ -19,6 +19,7 @@ class CsvUpload(Base):
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     nbfc_id = Column(UUID(as_uuid=True), ForeignKey("nbfcs.id"), nullable=True)
     uploaded_by = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
+    original_filename = Column(String(255), nullable=True)
     minio_object_key = Column(String(500), nullable=False)
     row_count = Column(Integer, nullable=True)
     ingested_count = Column(Integer, nullable=True)

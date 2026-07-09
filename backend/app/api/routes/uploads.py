@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends, UploadFile, File, HTTPException
 from sqlalchemy.orm import Session
+from typing import List
 import uuid
 import arq
 import arq.connections
@@ -46,6 +47,7 @@ async def upload_csv(
     # create upload record in DB
     upload = CsvUpload(
         uploaded_by=current_user.id,
+        original_filename=file.filename,
         minio_object_key=object_key,
         status=UploadStatus.pending,
     )
@@ -64,6 +66,20 @@ async def upload_csv(
     await redis.close()
 
     return upload
+
+
+@router.get("/", response_model=List[CsvUploadResponse])
+def list_uploads(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    return (
+        db.query(CsvUpload)
+        .filter(CsvUpload.uploaded_by == current_user.id)
+        .order_by(CsvUpload.created_at.desc())
+        .limit(20)
+        .all()
+    )
 
 
 @router.get("/{upload_id}/status", response_model=CsvUploadResponse)

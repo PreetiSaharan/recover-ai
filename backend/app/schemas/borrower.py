@@ -30,6 +30,8 @@ class BorrowerResponse(BaseModel):
     outstanding_balance: Optional[Decimal]
     due_date: Optional[date]
     dpd_days: Optional[int]
+    last_payment_date: Optional[date]
+    last_payment_amount: Optional[Decimal]
     sma_bucket: Optional[SmaBucket]
     priority_score: Optional[Decimal]
     priority_reason: Optional[str]

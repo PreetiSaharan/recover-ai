@@ -3,8 +3,10 @@ const API_BASE_URL = "http://localhost:8000"
 export async function apiFetch(path: string, options: RequestInit = {}) {
   const token = localStorage.getItem("access_token")
 
+  const isFormData = options.body instanceof FormData
+
   const headers: Record<string, string> = {
-    "Content-Type": "application/json",
+    ...(isFormData ? {} : { "Content-Type": "application/json" }),
     ...(options.headers as Record<string, string> | undefined),
   }
 
