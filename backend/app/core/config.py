@@ -1,24 +1,24 @@
-## Reads all settings from .env
-
 from pydantic_settings import BaseSettings
+from typing import Optional
 
 
 class Settings(BaseSettings):
-    # Database
-    POSTGRES_USER: str
-    POSTGRES_PASSWORD: str
-    POSTGRES_DB: str
-    DATABASE_URL: str = ""
+    # Database — use DATABASE_URL directly in production
+    DATABASE_URL: str
+    POSTGRES_USER: Optional[str] = None
+    POSTGRES_PASSWORD: Optional[str] = None
+    POSTGRES_DB: Optional[str] = None
 
     # Redis
-    REDIS_URL: str
-    REDIS_HOST: str = "localhost"   
+    REDIS_HOST: str = "localhost"
     REDIS_PORT: int = 6379
+    REDIS_PASSWORD: Optional[str] = None
+    REDIS_URL: Optional[str] = None
 
-    # MinIO
+    # MinIO — only needed in local dev
     MINIO_ENDPOINT: str = "localhost:9000"
-    MINIO_ROOT_USER: str
-    MINIO_ROOT_PASSWORD: str
+    MINIO_ROOT_USER: Optional[str] = None
+    MINIO_ROOT_PASSWORD: Optional[str] = None
 
     # JWT
     JWT_SECRET_KEY: str
@@ -27,17 +27,7 @@ class Settings(BaseSettings):
 
     # App
     ENVIRONMENT: str = "development"
-
-    # Uploads — true for local dev (uses MinIO via Docker), false/unset in production
     USE_MINIO: bool = False
-
-    def model_post_init(self, __context):
-        if not self.DATABASE_URL:
-            object.__setattr__(
-                self,
-                "DATABASE_URL",
-                f"postgresql://{self.POSTGRES_USER}:{self.POSTGRES_PASSWORD}@localhost:5432/{self.POSTGRES_DB}"
-            )
 
     class Config:
         env_file = "../.env"
