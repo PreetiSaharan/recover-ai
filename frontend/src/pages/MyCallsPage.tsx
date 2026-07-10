@@ -1,14 +1,12 @@
 import { useEffect, useMemo, useState } from "react"
+import { useNavigate } from "react-router-dom"
 import { toast } from "sonner"
 import { apiFetch } from "@/lib/api"
 import { useCurrentUser } from "@/components/app-layout"
-import { useAssignments } from "@/lib/assignment-context"
-import type { Borrower, InteractionLog, SmaBucket } from "@/lib/types"
+import type { AssignmentRecord, Borrower, InteractionLog, PriorityAction, SmaBucket } from "@/lib/types"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Button } from "@/components/ui/button"
-import { LogOutcomeDialog } from "@/components/log-outcome-dialog"
-import { Phone } from "lucide-react"
+import { CheckCircle2, Circle } from "lucide-react"
 
 const SMA_BADGE_CLASSES: Record<SmaBucket, string> = {
   "SMA-0": "bg-status-sma0/10 text-status-sma0",
@@ -24,26 +22,16 @@ const SMA_BUCKET_BAR_CLASSES: Record<SmaBucket, string> = {
   NPA: "bg-status-npa",
 }
 
-const OUTCOME_LABELS: Record<string, string> = {
-  promise_to_pay: "Promise to Pay",
-  not_reachable: "Not Reachable",
-  refused: "Refused",
-  dispute: "Dispute",
-  already_paid: "Already Paid",
-  payment_collected: "Payment Collected",
-  not_found: "Not Found",
-  message_sent: "Message Sent",
-  message_delivered: "Message Delivered",
-  message_read: "Message Read",
+const PRIORITY_ACTION_CLASSES: Record<PriorityAction, string> = {
+  telecaller_call: "bg-status-sma0/10 text-status-sma0",
+  whatsapp: "bg-status-whatsapp/10 text-status-whatsapp",
+  field_visit: "bg-status-npa/10 text-status-npa",
 }
 
-const OUTCOME_CLASSES: Record<string, string> = {
-  promise_to_pay: "bg-status-current/15 text-status-current",
-  refused: "bg-status-npa/15 text-status-npa",
-  dispute: "bg-status-sma2/15 text-status-sma2",
-  not_reachable: "bg-muted text-muted-foreground",
-  already_paid: "bg-status-current/15 text-status-current",
-  payment_collected: "bg-status-current/15 text-status-current",
+const PRIORITY_ACTION_LABELS: Record<PriorityAction, string> = {
+  telecaller_call: "Telecaller Call",
+  whatsapp: "WhatsApp",
+  field_visit: "Field Visit",
 }
 
 function formatCurrency(value: string | number | null) {
@@ -54,41 +42,52 @@ function formatCurrency(value: string | number | null) {
   return `₹${n.toLocaleString("en-IN", { maximumFractionDigits: 0 })}`
 }
 
-type Filter = "all" | "pending" | "completed"
+function isToday(dateStr: string) {
+  const d = new Date(dateStr)
+  const now = new Date()
+  return (
+    d.getFullYear() === now.getFullYear() &&
+    d.getMonth() === now.getMonth() &&
+    d.getDate() === now.getDate()
+  )
+}
+
+type Filter = "all" | "pending" | "logged"
 
 export default function MyCallsPage() {
   const user = useCurrentUser()
-  const { assignments } = useAssignments()
+  const navigate = useNavigate()
   const [borrowers, setBorrowers] = useState<Borrower[]>([])
-  const [latestOutcome, setLatestOutcome] = useState<Record<string, InteractionLog>>({})
+  const [loggedToday, setLoggedToday] = useState<Set<string>>(new Set())
   const [isLoading, setIsLoading] = useState(true)
   const [filter, setFilter] = useState<Filter>("all")
-  const [activeBorrower, setActiveBorrower] = useState<Borrower | null>(null)
-
-  async function loadOutcomeFor(borrowerId: string) {
-    const logs: InteractionLog[] = await apiFetch(`/interactions/${borrowerId}?limit=1`).catch(() => [])
-    setLatestOutcome((prev) => {
-      const next = { ...prev }
-      if (logs.length > 0) next[borrowerId] = logs[0]
-      else delete next[borrowerId]
-      return next
-    })
-  }
 
   async function load() {
+    if (!user?.id) return
     setIsLoading(true)
     try {
-      const data: Borrower[] = await apiFetch("/borrowers/ranked?limit=200")
-      setBorrowers(data)
-      const myBorrowers = data.filter((b) => assignments[b.id]?.assigneeId === user?.id)
-      const results = await Promise.all(
+      const assignments: AssignmentRecord[] = await apiFetch("/assignments/today")
+      const mine = assignments.filter((a) => a.assigned_to === user.id)
+
+      const borrowerResults = await Promise.all(
+        mine.map((a) => apiFetch(`/borrowers/${a.borrower_id}`).catch(() => null))
+      )
+      const myBorrowers = borrowerResults
+        .filter((b): b is Borrower => b !== null)
+        .filter((b) => b.priority_action === "telecaller_call" || b.priority_action === "whatsapp")
+      myBorrowers.sort((a, b) => (b.dpd_days ?? 0) - (a.dpd_days ?? 0))
+      setBorrowers(myBorrowers)
+
+      const outcomeResults = await Promise.all(
         myBorrowers.map((b) => apiFetch(`/interactions/${b.id}?limit=1`).catch(() => []))
       )
-      const map: Record<string, InteractionLog> = {}
-      results.forEach((logs, i) => {
-        if (logs.length > 0) map[myBorrowers[i].id] = logs[0]
+      const logged = new Set<string>()
+      outcomeResults.forEach((logs: InteractionLog[], i) => {
+        if (logs.length > 0 && isToday(logs[0].created_at)) {
+          logged.add(myBorrowers[i].id)
+        }
       })
-      setLatestOutcome(map)
+      setLoggedToday(logged)
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Failed to load your calls")
     } finally {
@@ -101,21 +100,28 @@ export default function MyCallsPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id])
 
-  const myBorrowers = useMemo(
-    () => borrowers.filter((b) => assignments[b.id]?.assigneeId === user?.id),
-    [borrowers, assignments, user?.id]
-  )
+  useEffect(() => {
+    if (user && user.role === "field_agent") {
+      navigate("/my-cases", { replace: true })
+    }
+  }, [user, navigate])
 
-  const totalN = myBorrowers.length
-  const completedN = myBorrowers.filter((b) => latestOutcome[b.id]).length
-  const pendingN = totalN - completedN
-  const progressPct = totalN > 0 ? Math.round((completedN / totalN) * 100) : 0
+  const totalN = borrowers.length
+  const loggedN = loggedToday.size
+  const pendingN = totalN - loggedN
+  const progressPct = totalN > 0 ? Math.round((loggedN / totalN) * 100) : 0
 
-  const filtered = myBorrowers.filter((b) => {
-    if (filter === "pending") return !latestOutcome[b.id]
-    if (filter === "completed") return !!latestOutcome[b.id]
-    return true
-  })
+  const filtered = useMemo(() => {
+    return borrowers.filter((b) => {
+      if (filter === "pending") return !loggedToday.has(b.id)
+      if (filter === "logged") return loggedToday.has(b.id)
+      return true
+    })
+  }, [borrowers, loggedToday, filter])
+
+  if (user && user.role === "field_agent") {
+    return null
+  }
 
   return (
     <div className="space-y-4">
@@ -126,13 +132,13 @@ export default function MyCallsPage() {
 
       <Card>
         <CardContent className="flex flex-wrap items-center gap-5 py-4">
-          <div className="min-w-[150px]">
+          <div className="min-w-[220px]">
             <p className="text-[11.5px] font-semibold tracking-wide text-muted-foreground uppercase">
-              Completed today
+              Accounts actioned today
             </p>
             <div className="mt-1 flex items-baseline gap-1.5">
-              <span className="font-mono text-2xl font-bold">{completedN}</span>
-              <span className="font-mono text-sm text-muted-foreground">/ {totalN}</span>
+              <span className="font-mono text-2xl font-bold">{loggedN}</span>
+              <span className="font-mono text-sm text-muted-foreground">of {totalN}</span>
             </div>
           </div>
           <div className="min-w-[220px] flex-1">
@@ -150,8 +156,8 @@ export default function MyCallsPage() {
         {(
           [
             ["all", "All", totalN],
-            ["pending", "Pending", pendingN],
-            ["completed", "Completed", completedN],
+            ["pending", "Not Yet Called", pendingN],
+            ["logged", "Logged", loggedN],
           ] as [Filter, string, number][]
         ).map(([value, label, count]) => (
           <button
@@ -173,21 +179,29 @@ export default function MyCallsPage() {
         {!isLoading && filtered.length === 0 && (
           <div className="py-10 text-center text-muted-foreground">
             {totalN === 0
-              ? "No borrowers assigned to you yet."
+              ? "No borrowers assigned to you today."
               : "No borrowers match this filter."}
           </div>
         )}
         {filtered.map((b) => {
-          const outcome = latestOutcome[b.id]
-          const done = !!outcome
+          const done = loggedToday.has(b.id)
           return (
-            <Card key={b.id} className={done ? "opacity-60" : undefined}>
+            <Card
+              key={b.id}
+              className={`cursor-pointer transition-colors hover:border-primary/40 ${done ? "opacity-60" : ""}`}
+              onClick={() => navigate(`/borrowers/${b.id}`)}
+            >
               <CardContent className="flex items-center gap-3.5 py-3.5">
                 <span
                   className={`w-1 shrink-0 self-stretch rounded ${
                     b.sma_bucket ? SMA_BUCKET_BAR_CLASSES[b.sma_bucket] : "bg-muted"
                   }`}
                 />
+                {done ? (
+                  <CheckCircle2 className="size-5 shrink-0 text-status-current" />
+                ) : (
+                  <Circle className="size-5 shrink-0 text-muted-foreground" />
+                )}
                 <div className="min-w-0 flex-1">
                   <div className={`font-bold text-sm ${done ? "text-muted-foreground line-through" : ""}`}>
                     {b.full_name}
@@ -204,31 +218,16 @@ export default function MyCallsPage() {
                   </div>
                 </div>
                 {b.sma_bucket && <Badge className={SMA_BADGE_CLASSES[b.sma_bucket]}>{b.sma_bucket}</Badge>}
-                {done ? (
-                  <Badge className={OUTCOME_CLASSES[outcome.outcome] ?? "bg-muted text-muted-foreground"}>
-                    {OUTCOME_LABELS[outcome.outcome] ?? outcome.outcome}
+                {b.priority_action && (
+                  <Badge className={PRIORITY_ACTION_CLASSES[b.priority_action]}>
+                    {PRIORITY_ACTION_LABELS[b.priority_action]}
                   </Badge>
-                ) : (
-                  <Button size="sm" onClick={() => setActiveBorrower(b)}>
-                    <Phone className="size-3.5" data-icon="inline-start" />
-                    Call Now
-                  </Button>
                 )}
               </CardContent>
             </Card>
           )
         })}
       </div>
-
-      {activeBorrower && (
-        <LogOutcomeDialog
-          open={!!activeBorrower}
-          onOpenChange={(open) => !open && setActiveBorrower(null)}
-          borrowerId={activeBorrower.id}
-          borrowerName={activeBorrower.full_name}
-          onLogged={() => loadOutcomeFor(activeBorrower.id)}
-        />
-      )}
     </div>
   )
 }

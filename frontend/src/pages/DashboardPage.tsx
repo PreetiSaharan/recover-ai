@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom"
 import { toast } from "sonner"
 import { apiFetch } from "@/lib/api"
 import { useAssignments } from "@/lib/assignment-context"
+import { useCurrentUser } from "@/components/app-layout"
 import type { AppUser, Borrower, PriorityAction, SmaBucket } from "@/lib/types"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -69,6 +70,7 @@ function formatCurrency(value: string | number | null) {
 
 export default function DashboardPage() {
   const navigate = useNavigate()
+  const user = useCurrentUser()
   const [borrowers, setBorrowers] = useState<Borrower[]>([])
   const [users, setUsers] = useState<AppUser[]>([])
   const [loggedBorrowerIds, setLoggedBorrowerIds] = useState<Set<string>>(new Set())
@@ -121,6 +123,14 @@ export default function DashboardPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
+  useEffect(() => {
+    if (user && user.role === "field_agent") {
+      navigate("/my-cases", { replace: true })
+    } else if (user && user.role !== "manager") {
+      navigate("/my-calls", { replace: true })
+    }
+  }, [user, navigate])
+
   function statusOf(borrowerId: string): RowStatus {
     if (loggedBorrowerIds.has(borrowerId)) return "logged"
     const s = assignments[borrowerId]
@@ -132,6 +142,12 @@ export default function DashboardPage() {
     const id = assignments[borrowerId]?.assigneeId
     if (!id) return "Unassigned"
     return users.find((u) => u.id === id)?.full_name ?? "Unassigned"
+  }
+
+  function eligibleAgentsFor(priorityAction: PriorityAction | null): AppUser[] {
+    return priorityAction === "field_visit"
+      ? users.filter((u) => u.role === "field_agent")
+      : users.filter((u) => u.role === "telecaller")
   }
 
   async function handleAutoAssign() {
@@ -230,6 +246,10 @@ export default function DashboardPage() {
   const totalN = borrowers.length
   const unassignedN = totalN - assignedN
   const progressPct = totalN > 0 ? Math.round((assignedN / totalN) * 100) : 0
+
+  if (!user || user.role !== "manager") {
+    return null
+  }
 
   return (
     <div className="space-y-4">
@@ -501,7 +521,7 @@ export default function DashboardPage() {
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="unassigned">Unassigned</SelectItem>
-                        {users.map((u) => (
+                        {eligibleAgentsFor(b.priority_action).map((u) => (
                           <SelectItem key={u.id} value={u.id}>
                             {u.full_name}
                           </SelectItem>

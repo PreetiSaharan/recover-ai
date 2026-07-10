@@ -5,6 +5,7 @@ import UploadPage from './pages/UploadPage'
 import ReportsPage from './pages/ReportsPage'
 import BorrowerDetailPage from './pages/BorrowerDetailPage'
 import MyCallsPage from './pages/MyCallsPage'
+import MyCasesPage from './pages/MyCasesPage'
 import { Toaster } from '@/components/ui/sonner'
 import { ThemeProvider } from '@/components/theme-provider'
 import { ProtectedRoute } from '@/components/protected-route'
@@ -23,6 +24,7 @@ function App() {
               <Route path="/borrowers/:id" element={<BorrowerDetailPage />} />
               <Route path="/upload" element={<UploadPage />} />
               <Route path="/my-calls" element={<MyCallsPage />} />
+              <Route path="/my-cases" element={<MyCasesPage />} />
               <Route path="/reports" element={<ReportsPage />} />
             </Route>
           </Route>

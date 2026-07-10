@@ -77,6 +77,25 @@ def run_seed():
             db.commit()
             db.refresh(telecaller)
             print(f"  ✓ Created telecaller: {telecaller.email}")
+        
+        field_agent_email = "agent@demofin.com"
+        existing_agent = db.query(User).filter(User.email == field_agent_email).first()
+        if existing_agent:
+            field_agent = existing_agent
+            print("  ✓ Field agent already exists, skipping")
+        else:
+            field_agent = User(
+                id=uuid.uuid4(),
+                nbfc_id=nbfc.id,
+                email=field_agent_email,
+                hashed_password=hash_password("Demo@1234"),
+                role="field_agent",
+                full_name="Ravi Kumar",
+            )
+            db.add(field_agent)
+            db.commit()
+            db.refresh(field_agent)
+            print(f"  ✓ Created field agent: {field_agent.email}")
 
         # 3. Create borrowers
         borrowers_data = [
@@ -222,6 +241,7 @@ def run_seed():
         print("\nDemo credentials:")
         print("  Manager:    manager@demofin.com  /  Demo@1234")
         print("  Telecaller: telecaller@demofin.com  /  Demo@1234")
+        print("  Field Agent: agent@demofin.com  /  Demo@1234")
 
     except Exception as e:
         db.rollback()

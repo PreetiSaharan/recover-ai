@@ -8,12 +8,24 @@ import { ThemeToggle } from '@/components/theme-toggle'
 import { apiFetch } from '@/lib/api'
 import { Loader2, ShieldCheck, AlertCircle } from 'lucide-react'
 
+const DEMO_ACCOUNTS = [
+  { label: 'Manager', email: 'manager@demofin.com', password: 'Demo@1234' },
+  { label: 'Telecaller', email: 'telecaller@demofin.com', password: 'Demo@1234' },
+  { label: 'Field Agent', email: 'agent@demofin.com', password: 'Demo@1234' },
+]
+
 export default function LoginPage() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState(false)
   const navigate = useNavigate()
+
+  function fillDemoAccount(demoEmail: string, demoPassword: string) {
+    setEmail(demoEmail)
+    setPassword(demoPassword)
+    setError(false)
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -27,7 +39,11 @@ export default function LoginPage() {
       })
 
       localStorage.setItem('access_token', data.access_token)
-      navigate('/dashboard')
+
+      const me = await apiFetch('/auth/me').catch(() => null)
+      if (me?.role === 'telecaller') navigate('/my-calls')
+      else if (me?.role === 'field_agent') navigate('/my-cases')
+      else navigate('/dashboard')
     } catch {
       setError(true)
     } finally {
@@ -104,6 +120,28 @@ export default function LoginPage() {
                 {isLoading ? <Loader2 className="size-4 animate-spin" /> : 'Log in'}
               </Button>
             </form>
+
+            <div className="mt-5 border-t pt-4">
+              <div className="text-[11px] font-semibold tracking-wide text-muted-foreground uppercase">
+                Demo access
+              </div>
+              <div className="mt-2 grid grid-cols-3 gap-1.5">
+                {DEMO_ACCOUNTS.map((account) => (
+                  <Button
+                    key={account.label}
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => fillDemoAccount(account.email, account.password)}
+                  >
+                    {account.label}
+                  </Button>
+                ))}
+              </div>
+              <p className="mt-2 text-[10.5px] text-muted-foreground">
+                Pre-filled for demo purposes only.
+              </p>
+            </div>
           </CardContent>
         </Card>
 

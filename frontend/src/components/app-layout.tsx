@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react"
 import { NavLink, Outlet, useNavigate, useOutletContext } from "react-router-dom"
-import { LayoutGrid, Upload, BarChart3, Phone, Bell, ChevronDown, LogOut } from "lucide-react"
+import { LayoutGrid, Upload, BarChart3, Phone, MapPin, Bell, ChevronDown, LogOut } from "lucide-react"
 import { apiFetch } from "@/lib/api"
 import type { CurrentUser } from "@/lib/types"
 import { ThemeToggle } from "@/components/theme-toggle"
@@ -20,9 +20,13 @@ const MANAGER_NAV_ITEMS = [
   { to: "/reports", label: "Reports", icon: BarChart3 },
 ]
 
-const FIELD_NAV_ITEMS = [
-  { to: "/dashboard", label: "Dashboard", icon: LayoutGrid },
+const TELECALLER_NAV_ITEMS = [
   { to: "/my-calls", label: "My Calls", icon: Phone },
+  { to: "/reports", label: "Reports", icon: BarChart3 },
+]
+
+const FIELD_AGENT_NAV_ITEMS = [
+  { to: "/my-cases", label: "My Cases", icon: MapPin },
   { to: "/reports", label: "Reports", icon: BarChart3 },
 ]
 
@@ -52,7 +56,13 @@ export function AppLayout() {
     navigate("/login")
   }
 
-  const navItems = user?.role === "manager" ? MANAGER_NAV_ITEMS : FIELD_NAV_ITEMS
+  const navItems = !user
+    ? []
+    : user.role === "manager"
+      ? MANAGER_NAV_ITEMS
+      : user.role === "field_agent"
+        ? FIELD_AGENT_NAV_ITEMS
+        : TELECALLER_NAV_ITEMS
 
   return (
     <div className="flex h-screen w-full overflow-hidden bg-background text-foreground">
