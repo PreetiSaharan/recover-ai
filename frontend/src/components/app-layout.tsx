@@ -148,7 +148,9 @@ export function AppLayout() {
           </Button>
 
           <div className="flex items-center gap-2">
-            <span className="text-[14.5px] font-semibold">{user?.nbfc_name ?? "—"}</span>
+            <span className="max-w-[120px] truncate text-[14.5px] font-semibold sm:max-w-none">
+              {user?.nbfc_name ?? "—"}
+            </span>
             <span className="rounded-md bg-muted px-1.5 py-0.5 text-[10.5px] font-semibold tracking-wide text-muted-foreground">
               NBFC
             </span>

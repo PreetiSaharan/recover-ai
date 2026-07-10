@@ -115,8 +115,8 @@ export default function UploadPage() {
         </p>
       </div>
 
-      <div className="grid grid-cols-[1.15fr_0.85fr] items-start gap-4">
-        <div className="flex flex-col gap-4">
+      <div className="flex flex-col items-start gap-4 lg:flex-row">
+        <div className="flex w-full flex-col gap-4 lg:w-[58%]">
           <Card>
             <CardContent className="py-1">
               {phase === "idle" && (
@@ -232,7 +232,7 @@ export default function UploadPage() {
           )}
         </div>
 
-        <Card className="overflow-hidden py-0">
+        <Card className="w-full overflow-hidden py-0 lg:w-[42%]">
           <div className="border-b px-4.5 py-3.5">
             <span className="text-[13.5px] font-bold">Upload history</span>
           </div>
