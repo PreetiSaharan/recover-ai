@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react"
 import { NavLink, Outlet, useNavigate, useOutletContext } from "react-router-dom"
-import { LayoutGrid, Upload, BarChart3, Phone, MapPin, Bell, ChevronDown, LogOut } from "lucide-react"
+import { LayoutGrid, Upload, BarChart3, Phone, MapPin, Bell, ChevronDown, LogOut, Menu, X } from "lucide-react"
 import { apiFetch } from "@/lib/api"
 import type { CurrentUser } from "@/lib/types"
 import { ThemeToggle } from "@/components/theme-toggle"
@@ -46,6 +46,7 @@ export function useCurrentUser() {
 export function AppLayout() {
   const navigate = useNavigate()
   const [user, setUser] = useState<CurrentUser | null>(null)
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false)
 
   useEffect(() => {
     apiFetch("/auth/me").then(setUser).catch(() => setUser(null))
@@ -66,7 +67,19 @@ export function AppLayout() {
 
   return (
     <div className="flex h-screen w-full overflow-hidden bg-background text-foreground">
-      <aside className="flex w-[236px] shrink-0 flex-col border-r bg-card">
+      {isSidebarOpen && (
+        <div
+          className="fixed inset-0 z-40 bg-black/50 lg:hidden"
+          onClick={() => setIsSidebarOpen(false)}
+          aria-hidden="true"
+        />
+      )}
+
+      <aside
+        className={`fixed inset-y-0 left-0 z-50 flex w-[236px] shrink-0 -translate-x-full flex-col border-r bg-card transition-transform duration-200 ease-in-out lg:static lg:translate-x-0 ${
+          isSidebarOpen ? "translate-x-0" : ""
+        }`}
+      >
         <div className="flex items-center gap-3 px-5 pt-5 pb-4">
           <div className="flex size-7.5 shrink-0 items-center justify-center rounded-lg bg-primary">
             <div className="size-3 rotate-[-45deg] rounded-sm border-2 border-r-transparent border-primary-foreground" />
@@ -75,6 +88,15 @@ export function AppLayout() {
             <div className="text-[16px] leading-none font-bold tracking-tight">RecoverAI</div>
             <div className="mt-0.5 text-[10.5px] text-muted-foreground">Collections OS</div>
           </div>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="ml-auto lg:hidden"
+            aria-label="Close menu"
+            onClick={() => setIsSidebarOpen(false)}
+          >
+            <X className="size-4.5" />
+          </Button>
         </div>
 
         <nav className="flex flex-col gap-0.5 px-3 py-2">
@@ -82,6 +104,7 @@ export function AppLayout() {
             <NavLink
               key={to}
               to={to}
+              onClick={() => setIsSidebarOpen(false)}
               className={({ isActive }) =>
                 `flex items-center gap-2.5 rounded-lg px-3 py-2 text-[13.5px] font-medium transition-colors ${
                   isActive
@@ -114,6 +137,16 @@ export function AppLayout() {
 
       <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
         <header className="flex h-15 shrink-0 items-center gap-4 border-b bg-card px-6">
+          <Button
+            variant="outline"
+            size="icon"
+            className="lg:hidden"
+            aria-label="Open menu"
+            onClick={() => setIsSidebarOpen(true)}
+          >
+            <Menu className="size-4.5" />
+          </Button>
+
           <div className="flex items-center gap-2">
             <span className="text-[14.5px] font-semibold">{user?.nbfc_name ?? "—"}</span>
             <span className="rounded-md bg-muted px-1.5 py-0.5 text-[10.5px] font-semibold tracking-wide text-muted-foreground">
