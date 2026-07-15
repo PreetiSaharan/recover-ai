@@ -1,14 +1,16 @@
 import { useEffect, useState } from "react"
 import { NavLink, Outlet, useNavigate, useOutletContext } from "react-router-dom"
-import { LayoutGrid, Upload, BarChart3, Phone, MapPin, Bell, ChevronDown, LogOut, Menu, X } from "lucide-react"
+import { LayoutGrid, Upload, BarChart3, Phone, MapPin, Bell, ChevronDown, User, LogOut, Menu, X } from "lucide-react"
 import { apiFetch } from "@/lib/api"
 import type { CurrentUser } from "@/lib/types"
 import { ThemeToggle } from "@/components/theme-toggle"
 import { AssignmentProvider } from "@/lib/assignment-context"
+import { ProfileDialog } from "@/components/profile-dialog"
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
@@ -47,6 +49,7 @@ export function AppLayout() {
   const navigate = useNavigate()
   const [user, setUser] = useState<CurrentUser | null>(null)
   const [isSidebarOpen, setIsSidebarOpen] = useState(false)
+  const [profileOpen, setProfileOpen] = useState(false)
 
   useEffect(() => {
     apiFetch("/auth/me").then(setUser).catch(() => setUser(null))
@@ -173,6 +176,11 @@ export function AppLayout() {
                 <ChevronDown className="size-3.5 text-muted-foreground" />
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={() => setProfileOpen(true)}>
+                  <User className="size-4" />
+                  Profile
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={handleLogout} variant="destructive">
                   <LogOut className="size-4" />
                   Log out
@@ -187,6 +195,8 @@ export function AppLayout() {
             <Outlet context={user} />
           </AssignmentProvider>
         </main>
+
+        {user && <ProfileDialog open={profileOpen} onOpenChange={setProfileOpen} user={user} />}
       </div>
     </div>
   )

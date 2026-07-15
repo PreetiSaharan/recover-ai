@@ -1,6 +1,6 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
-from typing import List
+from typing import List, Optional
 from datetime import date
 
 from app.db.session import get_db
@@ -109,6 +109,18 @@ def get_today_assignments(
     today = date.today()
     return db.query(CaseAssignment).filter(
         CaseAssignment.date == today,
+    ).all()
+
+
+@router.get("/", response_model=List[AssignmentResponse])
+def get_assignments_for_date(
+    assignment_date: Optional[date] = Query(None, alias="date"),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    target_date = assignment_date or date.today()
+    return db.query(CaseAssignment).filter(
+        CaseAssignment.date == target_date,
     ).all()
 
 

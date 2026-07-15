@@ -5,8 +5,9 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent } from '@/components/ui/card'
 import { ThemeToggle } from '@/components/theme-toggle'
+import { HowItWorksDialog } from '@/components/how-it-works-dialog'
 import { apiFetch } from '@/lib/api'
-import { Loader2, ShieldCheck, AlertCircle } from 'lucide-react'
+import { Loader2, ShieldCheck, AlertCircle, HelpCircle } from 'lucide-react'
 
 const DEMO_ACCOUNTS = [
   { label: 'Manager', email: 'manager@demofin.com', password: 'Demo@1234' },
@@ -19,6 +20,7 @@ export default function LoginPage() {
   const [password, setPassword] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState(false)
+  const [helpOpen, setHelpOpen] = useState(false)
   const navigate = useNavigate()
 
   function fillDemoAccount(demoEmail: string, demoPassword: string) {
@@ -59,9 +61,19 @@ export default function LoginPage() {
           'radial-gradient(circle at 20% 15%, color-mix(in oklch, var(--primary) 7%, transparent), transparent 45%), radial-gradient(circle at 85% 90%, color-mix(in oklch, var(--primary) 5%, transparent), transparent 40%)',
       }}
     >
-      <div className="absolute top-5.5 right-6">
+      <div className="absolute top-5.5 right-6 flex items-center gap-2">
+        <Button
+          variant="outline"
+          size="icon"
+          aria-label="How it works"
+          onClick={() => setHelpOpen(true)}
+        >
+          <HelpCircle className="size-4" />
+        </Button>
         <ThemeToggle />
       </div>
+
+      <HowItWorksDialog open={helpOpen} onOpenChange={setHelpOpen} />
 
       <div className="flex w-[392px] max-w-[calc(100vw-40px)] flex-col items-center">
         <div className="mb-7 flex items-center gap-2.5">

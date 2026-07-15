@@ -7,6 +7,7 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { LogOutcomeDialog } from "@/components/log-outcome-dialog"
+import { OUTCOME_LABELS, OUTCOME_BADGE_CLASSES, INTERACTION_TYPE_LABELS } from "@/lib/outcomes"
 import { ArrowLeft, Plus, Phone } from "lucide-react"
 
 const SMA_BADGE_CLASSES: Record<SmaBucket, string> = {
@@ -14,35 +15,6 @@ const SMA_BADGE_CLASSES: Record<SmaBucket, string> = {
   "SMA-1": "bg-status-sma1/10 text-status-sma1",
   "SMA-2": "bg-status-sma2/10 text-status-sma2",
   NPA: "bg-status-npa/10 text-status-npa",
-}
-
-const OUTCOME_LABELS: Record<string, string> = {
-  promise_to_pay: "Promise to Pay",
-  not_reachable: "Not Reachable",
-  refused: "Refused",
-  dispute: "Dispute",
-  already_paid: "Already Paid",
-  payment_collected: "Payment Collected",
-  not_found: "Not Found",
-  message_sent: "Message Sent",
-  message_delivered: "Message Delivered",
-  message_read: "Message Read",
-}
-
-const OUTCOME_CLASSES: Record<string, string> = {
-  promise_to_pay: "bg-status-current/15 text-status-current",
-  refused: "bg-status-npa/15 text-status-npa",
-  dispute: "bg-status-sma2/15 text-status-sma2",
-  not_reachable: "bg-muted text-muted-foreground",
-  already_paid: "bg-status-current/15 text-status-current",
-  payment_collected: "bg-status-current/15 text-status-current",
-}
-
-const TYPE_LABELS: Record<string, string> = {
-  telecall: "Telecall",
-  field_visit: "Field Visit",
-  whatsapp_outbound: "WhatsApp",
-  system: "System",
 }
 
 function formatCurrency(value: string | number | null) {
@@ -224,10 +196,10 @@ export default function BorrowerDetailPage() {
                 </div>
                 <div className="min-w-0 flex-1">
                   <div className="flex flex-wrap items-center gap-2">
-                    <Badge className={OUTCOME_CLASSES[it.outcome] ?? "bg-muted text-muted-foreground"}>
+                    <Badge className={OUTCOME_BADGE_CLASSES[it.outcome] ?? "bg-muted text-muted-foreground"}>
                       {OUTCOME_LABELS[it.outcome] ?? it.outcome}
                     </Badge>
-                    <span className="text-xs text-muted-foreground">{TYPE_LABELS[it.interaction_type]}</span>
+                    <span className="text-xs text-muted-foreground">{INTERACTION_TYPE_LABELS[it.interaction_type]}</span>
                     <span className="ml-auto text-[11.5px] text-muted-foreground">
                       {formatDate(it.created_at)}
                     </span>
