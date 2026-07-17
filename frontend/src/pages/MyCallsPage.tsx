@@ -6,6 +6,8 @@ import { useCurrentUser } from "@/components/app-layout"
 import type { AssignmentRecord, Borrower, InteractionLog, PriorityAction, SmaBucket } from "@/lib/types"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
+import { DateRangeControl, CustomDateRangeInputs } from "@/components/date-range-control"
+import { type RangeOption, todayStr, addDays, computeRange, isWithinRange, rangeLabel } from "@/lib/date-range"
 import { CheckCircle2, Circle } from "lucide-react"
 
 const SMA_BADGE_CLASSES: Record<SmaBucket, string> = {
@@ -42,32 +44,39 @@ function formatCurrency(value: string | number | null) {
   return `₹${n.toLocaleString("en-IN", { maximumFractionDigits: 0 })}`
 }
 
-function isToday(dateStr: string) {
-  const d = new Date(dateStr)
-  const now = new Date()
-  return (
-    d.getFullYear() === now.getFullYear() &&
-    d.getMonth() === now.getMonth() &&
-    d.getDate() === now.getDate()
-  )
-}
-
 type Filter = "all" | "pending" | "logged"
 
 export default function MyCallsPage() {
   const user = useCurrentUser()
   const navigate = useNavigate()
+  const [range, setRange] = useState<RangeOption>("7d")
+  const [customFrom, setCustomFrom] = useState(addDays(todayStr(), -6))
+  const [customTo, setCustomTo] = useState(todayStr())
   const [borrowers, setBorrowers] = useState<Borrower[]>([])
-  const [loggedToday, setLoggedToday] = useState<Set<string>>(new Set())
+  const [loggedInRange, setLoggedInRange] = useState<Set<string>>(new Set())
   const [isLoading, setIsLoading] = useState(true)
   const [filter, setFilter] = useState<Filter>("all")
 
+  const { dateFrom, dateTo } = useMemo(
+    () => computeRange(range, customFrom, customTo),
+    [range, customFrom, customTo]
+  )
+
   async function load() {
     if (!user?.id) return
+    if (!dateFrom || !dateTo) return
     setIsLoading(true)
     try {
-      const assignments: AssignmentRecord[] = await apiFetch("/assignments/today")
-      const mine = assignments.filter((a) => a.assigned_to === user.id)
+      const assignments: AssignmentRecord[] = await apiFetch(
+        `/assignments/?date_from=${dateFrom}&date_to=${dateTo}`
+      )
+      const mineByBorrower = new Map<string, AssignmentRecord>()
+      assignments
+        .filter((a) => a.assigned_to === user.id)
+        .forEach((a) => {
+          if (!mineByBorrower.has(a.borrower_id)) mineByBorrower.set(a.borrower_id, a)
+        })
+      const mine = Array.from(mineByBorrower.values())
 
       const borrowerResults = await Promise.all(
         mine.map((a) => apiFetch(`/borrowers/${a.borrower_id}`).catch(() => null))
@@ -83,11 +92,11 @@ export default function MyCallsPage() {
       )
       const logged = new Set<string>()
       outcomeResults.forEach((logs: InteractionLog[], i) => {
-        if (logs.length > 0 && isToday(logs[0].created_at)) {
+        if (logs.length > 0 && isWithinRange(logs[0].created_at, dateFrom, dateTo)) {
           logged.add(myBorrowers[i].id)
         }
       })
-      setLoggedToday(logged)
+      setLoggedInRange(logged)
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Failed to load your calls")
     } finally {
@@ -98,7 +107,7 @@ export default function MyCallsPage() {
   useEffect(() => {
     load()
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user?.id])
+  }, [user?.id, dateFrom, dateTo])
 
   useEffect(() => {
     if (user && user.role === "field_agent") {
@@ -107,17 +116,17 @@ export default function MyCallsPage() {
   }, [user, navigate])
 
   const totalN = borrowers.length
-  const loggedN = loggedToday.size
+  const loggedN = loggedInRange.size
   const pendingN = totalN - loggedN
   const progressPct = totalN > 0 ? Math.round((loggedN / totalN) * 100) : 0
 
   const filtered = useMemo(() => {
     return borrowers.filter((b) => {
-      if (filter === "pending") return !loggedToday.has(b.id)
-      if (filter === "logged") return loggedToday.has(b.id)
+      if (filter === "pending") return !loggedInRange.has(b.id)
+      if (filter === "logged") return loggedInRange.has(b.id)
       return true
     })
-  }, [borrowers, loggedToday, filter])
+  }, [borrowers, loggedInRange, filter])
 
   if (user && user.role === "field_agent") {
     return null
@@ -125,16 +134,29 @@ export default function MyCallsPage() {
 
   return (
     <div className="space-y-4">
-      <div>
-        <h1 className="text-[22px] font-bold tracking-tight">My Calls — Today</h1>
-        <p className="mt-1 text-[13px] text-muted-foreground">Assigned by AI risk model</p>
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <h1 className="text-[22px] font-bold tracking-tight">My Calls — {rangeLabel(range, dateFrom, dateTo)}</h1>
+          <p className="mt-1 text-[13px] text-muted-foreground">Assigned by AI risk model</p>
+        </div>
+
+        <DateRangeControl value={range} onChange={setRange} />
       </div>
+
+      {range === "custom" && (
+        <CustomDateRangeInputs
+          from={customFrom}
+          to={customTo}
+          onFromChange={setCustomFrom}
+          onToChange={setCustomTo}
+        />
+      )}
 
       <Card>
         <CardContent className="flex flex-wrap items-center gap-5 py-4">
           <div className="min-w-[220px]">
             <p className="text-[11.5px] font-semibold tracking-wide text-muted-foreground uppercase">
-              Accounts actioned today
+              Accounts actioned
             </p>
             <div className="mt-1 flex items-baseline gap-1.5">
               <span className="font-mono text-2xl font-bold">{loggedN}</span>
@@ -179,12 +201,12 @@ export default function MyCallsPage() {
         {!isLoading && filtered.length === 0 && (
           <div className="py-10 text-center text-muted-foreground">
             {totalN === 0
-              ? "No borrowers assigned to you today."
+              ? "No borrowers assigned to you in this range."
               : "No borrowers match this filter."}
           </div>
         )}
         {filtered.map((b) => {
-          const done = loggedToday.has(b.id)
+          const done = loggedInRange.has(b.id)
           return (
             <Card
               key={b.id}

@@ -123,7 +123,6 @@ export function AppLayout() {
         </nav>
 
         <div className="mt-auto space-y-2 p-3">
-          <ThemeToggle />
           <div className="flex items-center gap-2.5 border-t pt-3">
             <Avatar>
               <AvatarFallback>{user ? initials(user.full_name) : "?"}</AvatarFallback>
@@ -160,6 +159,7 @@ export function AppLayout() {
           </div>
 
           <div className="ml-auto flex items-center gap-2">
+            <ThemeToggle />
             <Button variant="outline" size="icon" className="relative" aria-label="Notifications">
               <Bell className="size-4.5" />
               <span className="absolute top-1.5 right-2 size-1.5 rounded-full bg-status-npa" />

@@ -115,13 +115,20 @@ def get_today_assignments(
 @router.get("/", response_model=List[AssignmentResponse])
 def get_assignments_for_date(
     assignment_date: Optional[date] = Query(None, alias="date"),
+    date_from: Optional[date] = Query(None),
+    date_to: Optional[date] = Query(None),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    target_date = assignment_date or date.today()
-    return db.query(CaseAssignment).filter(
-        CaseAssignment.date == target_date,
-    ).all()
+    query = db.query(CaseAssignment)
+    if date_from or date_to:
+        if date_from:
+            query = query.filter(CaseAssignment.date >= date_from)
+        if date_to:
+            query = query.filter(CaseAssignment.date <= date_to)
+    else:
+        query = query.filter(CaseAssignment.date == (assignment_date or date.today()))
+    return query.order_by(CaseAssignment.date.desc()).all()
 
 
 @router.patch("/{borrower_id}/status")

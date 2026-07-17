@@ -3,11 +3,22 @@ import { toast } from "sonner"
 import { apiFetch } from "@/lib/api"
 import { useCurrentUser } from "@/components/app-layout"
 import { OUTCOME_LABELS, OUTCOME_COLOR_VAR, isWastedOutcome } from "@/lib/outcomes"
+import {
+  type RangeOption,
+  todayStr,
+  addDays,
+  dateOnly,
+  isWithinRange,
+  daysBetween,
+  displayDate,
+  computeRange,
+  rangeLabel,
+} from "@/lib/date-range"
+import { DateRangeControl, CustomDateRangeInputs } from "@/components/date-range-control"
 import type { AppUser, AssignmentRecord, Borrower, InteractionLog } from "@/lib/types"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
 import {
   Table,
   TableBody,
@@ -46,31 +57,6 @@ function formatCurrency(value: number | string | null) {
   return `₹${n.toLocaleString("en-IN", { maximumFractionDigits: 0 })}`
 }
 
-function todayStr() {
-  const d = new Date()
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`
-}
-
-function dateOnly(iso: string) {
-  return iso.slice(0, 10)
-}
-
-function addDays(dateStr: string, delta: number) {
-  const d = new Date(dateStr + "T00:00:00")
-  d.setDate(d.getDate() + delta)
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`
-}
-
-function daysBetween(from: string, to: string) {
-  const a = new Date(from + "T00:00:00")
-  const b = new Date(to + "T00:00:00")
-  return Math.round((b.getTime() - a.getTime()) / 86400000)
-}
-
-function displayDate(dateStr: string) {
-  return new Date(dateStr + "T00:00:00").toLocaleDateString("en-IN", { day: "numeric", month: "short" })
-}
-
 function displayTime(iso: string) {
   return new Date(iso).toLocaleTimeString("en-IN", { hour: "numeric", minute: "2-digit" })
 }
@@ -81,7 +67,9 @@ interface EnrichedInteraction extends InteractionLog {
 
 export default function ReportsPage() {
   const user = useCurrentUser()
-  const [selectedDate, setSelectedDate] = useState(todayStr())
+  const [range, setRange] = useState<RangeOption>("7d")
+  const [customFrom, setCustomFrom] = useState(addDays(todayStr(), -6))
+  const [customTo, setCustomTo] = useState(todayStr())
   const [borrowers, setBorrowers] = useState<Borrower[]>([])
   const [users, setUsers] = useState<AppUser[]>([])
   const [interactionsByBorrower, setInteractionsByBorrower] = useState<Record<string, InteractionLog[]>>({})
@@ -89,6 +77,11 @@ export default function ReportsPage() {
   const [isLoading, setIsLoading] = useState(true)
   const [isLoadingAssignments, setIsLoadingAssignments] = useState(true)
   const [summarySubmitted, setSummarySubmitted] = useState(false)
+
+  const { dateFrom, dateTo } = useMemo(
+    () => computeRange(range, customFrom, customTo),
+    [range, customFrom, customTo]
+  )
 
   useEffect(() => {
     async function load() {
@@ -120,9 +113,10 @@ export default function ReportsPage() {
 
   useEffect(() => {
     async function loadAssignments() {
+      if (!dateFrom || !dateTo) return
       setIsLoadingAssignments(true)
       try {
-        const data = await apiFetch(`/assignments/?date=${selectedDate}`)
+        const data = await apiFetch(`/assignments/?date_from=${dateFrom}&date_to=${dateTo}`)
         setAssignments(data)
       } catch (err) {
         toast.error(err instanceof Error ? err.message : "Failed to load assignments")
@@ -131,7 +125,7 @@ export default function ReportsPage() {
       }
     }
     loadAssignments()
-  }, [selectedDate])
+  }, [dateFrom, dateTo])
 
   const borrowersById = useMemo(() => {
     const map: Record<string, Borrower> = {}
@@ -147,46 +141,46 @@ export default function ReportsPage() {
     [interactionsByBorrower]
   )
 
-  const interactionsOnDate = useMemo(
-    () => allInteractions.filter((i) => dateOnly(i.created_at) === selectedDate),
-    [allInteractions, selectedDate]
+  const interactionsInRange = useMemo(
+    () => allInteractions.filter((i) => isWithinRange(i.created_at, dateFrom, dateTo)),
+    [allInteractions, dateFrom, dateTo]
   )
 
-  const recoveryToday = useMemo(
+  const recoveryInRange = useMemo(
     () =>
-      interactionsOnDate.reduce((sum, i) => sum + (i.payment_amount ? Number(i.payment_amount) : 0), 0),
-    [interactionsOnDate]
+      interactionsInRange.reduce((sum, i) => sum + (i.payment_amount ? Number(i.payment_amount) : 0), 0),
+    [interactionsInRange]
   )
-  const contactedToday = useMemo(
-    () => new Set(interactionsOnDate.map((i) => i.borrowerId)).size,
-    [interactionsOnDate]
+  const contactedInRange = useMemo(
+    () => new Set(interactionsInRange.map((i) => i.borrowerId)).size,
+    [interactionsInRange]
   )
 
-  // for each borrower, find the most recent interaction as-of the selected date
+  // for each borrower, find the most recent interaction as-of the end of the selected range
   const latestAsOfDate = useMemo(() => {
     const map: Record<string, EnrichedInteraction> = {}
     borrowers.forEach((b) => {
       const logs = (interactionsByBorrower[b.id] ?? [])
-        .filter((l) => dateOnly(l.created_at) <= selectedDate)
+        .filter((l) => dateOnly(l.created_at) <= dateTo)
         .sort((a, c) => (a.created_at < c.created_at ? 1 : -1))
       if (logs.length > 0) map[b.id] = { ...logs[0], borrowerId: b.id }
     })
     return map
-  }, [borrowers, interactionsByBorrower, selectedDate])
+  }, [borrowers, interactionsByBorrower, dateTo])
 
   const activePtps = useMemo(
     () =>
       Object.values(latestAsOfDate).filter(
-        (l) => l.outcome === "promise_to_pay" && l.ptp_date && l.ptp_date >= selectedDate
+        (l) => l.outcome === "promise_to_pay" && l.ptp_date && l.ptp_date >= dateTo
       ),
-    [latestAsOfDate, selectedDate]
+    [latestAsOfDate, dateTo]
   )
   const brokenPtps = useMemo(
     () =>
       Object.values(latestAsOfDate).filter(
-        (l) => l.outcome === "promise_to_pay" && l.ptp_date && l.ptp_date < selectedDate
+        (l) => l.outcome === "promise_to_pay" && l.ptp_date && l.ptp_date < dateTo
       ),
-    [latestAsOfDate, selectedDate]
+    [latestAsOfDate, dateTo]
   )
   const ptpValueCommitted = useMemo(
     () => activePtps.reduce((sum, p) => sum + (p.ptp_amount ? Number(p.ptp_amount) : 0), 0),
@@ -203,14 +197,15 @@ export default function ReportsPage() {
   }, [borrowers])
 
   const recoveryTrend = useMemo(() => {
-    return Array.from({ length: 7 }, (_, i) => {
-      const day = addDays(selectedDate, i - 6)
+    const spanDays = Math.max(1, daysBetween(dateFrom, dateTo) + 1)
+    return Array.from({ length: spanDays }, (_, i) => {
+      const day = addDays(dateFrom, i)
       const value = allInteractions
         .filter((l) => dateOnly(l.created_at) === day)
         .reduce((sum, l) => sum + (l.payment_amount ? Number(l.payment_amount) : 0), 0)
       return { label: displayDate(day), value: value / 1e5 } // in lakhs for chart scale
     })
-  }, [allInteractions, selectedDate])
+  }, [allInteractions, dateFrom, dateTo])
 
   const telecallers = useMemo(() => users.filter((u) => u.role === "telecaller"), [users])
   const fieldAgents = useMemo(() => users.filter((u) => u.role === "field_agent"), [users])
@@ -219,7 +214,7 @@ export default function ReportsPage() {
     () =>
       telecallers.map((u) => {
         const assigned = assignments.filter((a) => a.assigned_to === u.id).length
-        const mine = interactionsOnDate.filter((i) => i.logged_by === u.id)
+        const mine = interactionsInRange.filter((i) => i.logged_by === u.id)
         const contacted = new Set(mine.map((i) => i.borrowerId)).size
         const logged = mine.length
         const ptps = mine.filter((i) => i.outcome === "promise_to_pay").length
@@ -232,14 +227,14 @@ export default function ReportsPage() {
           ptps,
         }
       }),
-    [telecallers, assignments, interactionsOnDate]
+    [telecallers, assignments, interactionsInRange]
   )
 
   const faRows = useMemo(
     () =>
       fieldAgents.map((u) => {
         const assigned = assignments.filter((a) => a.assigned_to === u.id).length
-        const mine = interactionsOnDate.filter((i) => i.logged_by === u.id)
+        const mine = interactionsInRange.filter((i) => i.logged_by === u.id)
         const visited = new Set(mine.map((i) => i.borrowerId)).size
         const collected = mine
           .filter((i) => i.outcome === "payment_collected")
@@ -247,7 +242,7 @@ export default function ReportsPage() {
         const wasted = mine.filter((i) => isWastedOutcome(i.outcome)).length
         return { name: u.full_name, assigned, visited, collected, wasted }
       }),
-    [fieldAgents, assignments, interactionsOnDate]
+    [fieldAgents, assignments, interactionsInRange]
   )
 
   function exportCsv() {
@@ -264,23 +259,23 @@ export default function ReportsPage() {
     const url = URL.createObjectURL(blob)
     const a = document.createElement("a")
     a.href = url
-    a.download = `recoverai-report-${selectedDate}.csv`
+    a.download = `recoverai-report-${dateFrom}_to_${dateTo}.csv`
     a.click()
     URL.revokeObjectURL(url)
   }
 
   // self-scoped data for telecaller / field agent views
-  const myInteractionsToday = useMemo(
-    () => (user ? interactionsOnDate.filter((i) => i.logged_by === user.id) : []),
-    [interactionsOnDate, user]
+  const myInteractionsInRange = useMemo(
+    () => (user ? interactionsInRange.filter((i) => i.logged_by === user.id) : []),
+    [interactionsInRange, user]
   )
-  const myAssignedToday = useMemo(
+  const myAssignedInRange = useMemo(
     () => (user ? assignments.filter((a) => a.assigned_to === user.id).length : 0),
     [assignments, user]
   )
   const myOutcomeSegments = useMemo(() => {
     const counts: Partial<Record<string, number>> = {}
-    myInteractionsToday.forEach((i) => {
+    myInteractionsInRange.forEach((i) => {
       counts[i.outcome] = (counts[i.outcome] ?? 0) + 1
     })
     return Object.entries(counts)
@@ -290,7 +285,7 @@ export default function ReportsPage() {
         count: count!,
         colorVar: OUTCOME_COLOR_VAR[outcome as keyof typeof OUTCOME_COLOR_VAR] ?? "muted-foreground",
       }))
-  }, [myInteractionsToday])
+  }, [myInteractionsInRange])
 
   const myActivePtps = useMemo(
     () => (user ? activePtps.filter((p) => p.logged_by === user.id) : []),
@@ -301,35 +296,30 @@ export default function ReportsPage() {
     [brokenPtps, user]
   )
   const myPayments = useMemo(
-    () => myInteractionsToday.filter((i) => i.outcome === "payment_collected"),
-    [myInteractionsToday]
+    () => myInteractionsInRange.filter((i) => i.outcome === "payment_collected"),
+    [myInteractionsInRange]
   )
 
   if (isLoading) {
     return <div className="py-16 text-center text-muted-foreground">Loading report...</div>
   }
 
-  const dateHeader = (
-    <div className="flex items-center gap-2">
-      <Input
-        type="date"
-        value={selectedDate}
-        onChange={(e) => setSelectedDate(e.target.value)}
-        className="w-40"
-      />
-    </div>
+  const rangeControl = <DateRangeControl value={range} onChange={setRange} />
+  const customRangeRow = range === "custom" && (
+    <CustomDateRangeInputs from={customFrom} to={customTo} onFromChange={setCustomFrom} onToChange={setCustomTo} />
   )
+  const currentRangeLabel = rangeLabel(range, dateFrom, dateTo)
 
   if (user?.role === "manager") {
     return (
       <div className="space-y-4">
-        <div className="flex flex-wrap items-end gap-4">
+        <div className="flex flex-wrap items-end justify-between gap-3">
           <div>
             <h1 className="text-[22px] font-bold tracking-tight">Daily Collections Report</h1>
             <p className="mt-1 text-[13px] text-muted-foreground">{user.nbfc_name} · portfolio-wide</p>
           </div>
-          <div className="ml-auto flex items-center gap-2.5">
-            {dateHeader}
+          <div className="flex items-center gap-2.5">
+            {rangeControl}
             <Button onClick={exportCsv}>
               <Download className="size-3.5" data-icon="inline-start" />
               Export CSV
@@ -337,11 +327,13 @@ export default function ReportsPage() {
           </div>
         </div>
 
+        {customRangeRow}
+
         <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
           <Card>
             <CardContent className="py-3.5">
-              <p className="text-[11.5px] font-semibold tracking-wide text-muted-foreground uppercase">Recovery today</p>
-              <p className="mt-1 font-mono text-2xl font-semibold text-status-current">{formatCurrency(recoveryToday)}</p>
+              <p className="text-[11.5px] font-semibold tracking-wide text-muted-foreground uppercase">Recovery in range</p>
+              <p className="mt-1 font-mono text-2xl font-semibold text-status-current">{formatCurrency(recoveryInRange)}</p>
             </CardContent>
           </Card>
           <Card>
@@ -358,8 +350,8 @@ export default function ReportsPage() {
           </Card>
           <Card>
             <CardContent className="py-3.5">
-              <p className="text-[11.5px] font-semibold tracking-wide text-muted-foreground uppercase">Contacted today</p>
-              <p className="mt-1 font-mono text-2xl font-semibold">{contactedToday}</p>
+              <p className="text-[11.5px] font-semibold tracking-wide text-muted-foreground uppercase">Contacted in range</p>
+              <p className="mt-1 font-mono text-2xl font-semibold">{contactedInRange}</p>
             </CardContent>
           </Card>
         </div>
@@ -369,10 +361,10 @@ export default function ReportsPage() {
             <div className="mb-2 flex items-baseline justify-between">
               <div>
                 <div className="text-sm font-bold">Recovery Trend</div>
-                <div className="mt-0.5 text-xs text-muted-foreground">Last 7 days, ₹ lakh</div>
+                <div className="mt-0.5 text-xs text-muted-foreground">{currentRangeLabel}, ₹ lakh</div>
               </div>
               <div className="font-mono text-lg font-bold text-status-current">
-                {formatCurrency(recoveryToday)} <span className="text-xs font-semibold text-muted-foreground">today</span>
+                {formatCurrency(recoveryInRange)} <span className="text-xs font-semibold text-muted-foreground">total</span>
               </div>
             </div>
             <RecoveryTrendChart data={recoveryTrend} />
@@ -503,32 +495,34 @@ export default function ReportsPage() {
   if (user?.role === "telecaller") {
     return (
       <div className="space-y-4">
-        <div className="flex flex-wrap items-end gap-4">
+        <div className="flex flex-wrap items-end justify-between gap-3">
           <div>
             <h1 className="text-[22px] font-bold tracking-tight">My Performance</h1>
-            <p className="mt-1 text-[13px] text-muted-foreground">{displayDate(selectedDate)} · {user.full_name}</p>
+            <p className="mt-1 text-[13px] text-muted-foreground">{currentRangeLabel} · {user.full_name}</p>
           </div>
-          <div className="ml-auto">{dateHeader}</div>
+          {rangeControl}
         </div>
+
+        {customRangeRow}
 
         <div className="grid grid-cols-3 gap-3">
           <Card>
             <CardContent className="py-3.5">
               <p className="text-[11.5px] font-semibold tracking-wide text-muted-foreground uppercase">Calls assigned</p>
-              <p className="mt-1 font-mono text-2xl font-semibold">{myAssignedToday}</p>
+              <p className="mt-1 font-mono text-2xl font-semibold">{myAssignedInRange}</p>
             </CardContent>
           </Card>
           <Card>
             <CardContent className="py-3.5">
               <p className="text-[11.5px] font-semibold tracking-wide text-muted-foreground uppercase">Outcomes logged</p>
-              <p className="mt-1 font-mono text-2xl font-semibold">{myInteractionsToday.length}</p>
+              <p className="mt-1 font-mono text-2xl font-semibold">{myInteractionsInRange.length}</p>
             </CardContent>
           </Card>
           <Card>
             <CardContent className="py-3.5">
               <p className="text-[11.5px] font-semibold tracking-wide text-muted-foreground uppercase">Completion %</p>
               <p className="mt-1 font-mono text-2xl font-semibold text-status-current">
-                {myAssignedToday > 0 ? Math.round((myInteractionsToday.length / myAssignedToday) * 100) : 0}%
+                {myAssignedInRange > 0 ? Math.round((myInteractionsInRange.length / myAssignedInRange) * 100) : 0}%
               </p>
             </CardContent>
           </Card>
@@ -538,7 +532,7 @@ export default function ReportsPage() {
           <CardContent className="py-4.5">
             <div className="text-sm font-bold">Outcome Breakdown</div>
             <div className="mb-3.5 mt-0.5 text-xs text-muted-foreground">
-              {myInteractionsToday.length} outcomes logged on {displayDate(selectedDate)}
+              {myInteractionsInRange.length} outcomes logged in {currentRangeLabel}
             </div>
             <OutcomeDonut segments={myOutcomeSegments} centerLabel="logged" />
           </CardContent>
@@ -592,10 +586,10 @@ export default function ReportsPage() {
               )}
               {myActivePtps
                 .slice()
-                .sort((a, b) => daysBetween(selectedDate, a.ptp_date!) - daysBetween(selectedDate, b.ptp_date!))
+                .sort((a, b) => daysBetween(dateTo, a.ptp_date!) - daysBetween(dateTo, b.ptp_date!))
                 .map((p) => {
                   const b = borrowersById[p.borrowerId]
-                  const days = daysBetween(selectedDate, p.ptp_date!)
+                  const days = daysBetween(dateTo, p.ptp_date!)
                   return (
                     <TableRow key={p.id}>
                       <TableCell className="pl-5 font-semibold">{b?.full_name ?? "Unknown"}</TableCell>
@@ -620,25 +614,27 @@ export default function ReportsPage() {
   // field agent view
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-end gap-4">
+      <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <h1 className="text-[22px] font-bold tracking-tight">My Performance</h1>
-          <p className="mt-1 text-[13px] text-muted-foreground">{displayDate(selectedDate)} · {user?.full_name}</p>
+          <p className="mt-1 text-[13px] text-muted-foreground">{currentRangeLabel} · {user?.full_name}</p>
         </div>
-        <div className="ml-auto">{dateHeader}</div>
+        {rangeControl}
       </div>
+
+      {customRangeRow}
 
       <div className="grid grid-cols-3 gap-3">
         <Card>
           <CardContent className="py-3.5">
             <p className="text-[11.5px] font-semibold tracking-wide text-muted-foreground uppercase">Visits assigned</p>
-            <p className="mt-1 font-mono text-2xl font-semibold">{myAssignedToday}</p>
+            <p className="mt-1 font-mono text-2xl font-semibold">{myAssignedInRange}</p>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="py-3.5">
             <p className="text-[11.5px] font-semibold tracking-wide text-muted-foreground uppercase">Visited</p>
-            <p className="mt-1 font-mono text-2xl font-semibold">{new Set(myInteractionsToday.map((i) => i.borrowerId)).size}</p>
+            <p className="mt-1 font-mono text-2xl font-semibold">{new Set(myInteractionsInRange.map((i) => i.borrowerId)).size}</p>
           </CardContent>
         </Card>
         <Card>
@@ -655,7 +651,7 @@ export default function ReportsPage() {
         <CardContent className="py-4.5">
           <div className="text-sm font-bold">Outcome Breakdown</div>
           <div className="mb-3.5 mt-0.5 text-xs text-muted-foreground">
-            {new Set(myInteractionsToday.map((i) => i.borrowerId)).size} visits completed on {displayDate(selectedDate)}
+            {new Set(myInteractionsInRange.map((i) => i.borrowerId)).size} visits completed in {currentRangeLabel}
           </div>
           <OutcomeDonut segments={myOutcomeSegments} centerLabel="visits" />
         </CardContent>
@@ -675,7 +671,7 @@ export default function ReportsPage() {
             {myPayments.length === 0 && (
               <TableRow>
                 <TableCell colSpan={3} className="py-6 text-center text-muted-foreground">
-                  No payments collected on {displayDate(selectedDate)}.
+                  No payments collected in {currentRangeLabel}.
                 </TableCell>
               </TableRow>
             )}
