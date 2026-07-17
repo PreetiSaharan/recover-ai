@@ -4,8 +4,8 @@ import { apiFetch } from "@/lib/api"
 import type { CsvUploadRecord } from "@/lib/types"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Button } from "@/components/ui/button"
-import { Upload as UploadIcon, Loader2, Check } from "lucide-react"
+import { Button, buttonVariants } from "@/components/ui/button"
+import { Upload as UploadIcon, Loader2, Check, Download } from "lucide-react"
 
 const STATUS_BADGE_CLASSES: Record<string, string> = {
   complete: "bg-status-current/15 text-status-current",
@@ -108,11 +108,26 @@ export default function UploadPage() {
 
   return (
     <div className="space-y-4">
-      <div>
-        <h1 className="text-[22px] font-bold tracking-tight">Upload Borrower Data</h1>
-        <p className="mt-1 text-[13px] text-muted-foreground">
-          Import a CSV of overdue accounts. We'll validate, score and rank each row.
-        </p>
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <h1 className="text-[22px] font-bold tracking-tight">Upload Borrower Data</h1>
+          <p className="mt-1 text-[13px] text-muted-foreground">
+            Import a CSV of overdue accounts. We'll validate, score and rank each row.
+          </p>
+        </div>
+        <div className="flex flex-col items-end gap-1">
+          <a
+            href="/templates/borrower_upload_template.csv"
+            download
+            className={buttonVariants({ variant: "outline", size: "sm" })}
+          >
+            <Download className="size-3.5" data-icon="inline-start" />
+            Download CSV template
+          </a>
+          <p className="text-[10.5px] text-muted-foreground">
+            Required: loan_account_number. Everything else is optional.
+          </p>
+        </div>
       </div>
 
       <div className="flex flex-col items-start gap-4 lg:flex-row">

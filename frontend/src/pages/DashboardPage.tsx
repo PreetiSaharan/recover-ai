@@ -155,17 +155,34 @@ export default function DashboardPage() {
     const unassigned = borrowers.filter((b) => statusOf(b.id) === "unassigned")
     if (unassigned.length === 0) return
 
-    // round-robin distribute unassigned borrowers across agents, one bulk call per agent
+    // round-robin distribute unassigned borrowers within their eligible role pool,
+    // one bulk call per agent — never assign a field-visit case to a telecaller (or vice versa)
     const byAgent = new Map<string, string[]>()
-    unassigned.forEach((b, i) => {
-      const agentId = users[i % users.length].id
+    let telecallerIdx = 0
+    let fieldAgentIdx = 0
+    let skipped = 0
+
+    unassigned.forEach((b) => {
+      const pool = eligibleAgentsFor(b.priority_action)
+      if (pool.length === 0) {
+        skipped += 1
+        return
+      }
+      const idx = b.priority_action === "field_visit" ? fieldAgentIdx++ : telecallerIdx++
+      const agentId = pool[idx % pool.length].id
       byAgent.set(agentId, [...(byAgent.get(agentId) ?? []), b.id])
     })
 
     await Promise.all(
       Array.from(byAgent.entries()).map(([agentId, borrowerIds]) => bulkSetAssignee(borrowerIds, agentId))
     )
-    toast.success("Unassigned accounts auto-assigned")
+
+    const assignedCount = unassigned.length - skipped
+    if (skipped > 0) {
+      toast.success(`${assignedCount} account${assignedCount === 1 ? "" : "s"} auto-assigned, ${skipped} skipped (no available agents)`)
+    } else {
+      toast.success(`${assignedCount} account${assignedCount === 1 ? "" : "s"} auto-assigned`)
+    }
   }
 
   async function handleBulkAssign(assigneeId: string) {
