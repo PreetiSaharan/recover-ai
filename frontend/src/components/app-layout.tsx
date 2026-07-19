@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react"
 import { NavLink, Outlet, useNavigate, useOutletContext } from "react-router-dom"
-import { LayoutGrid, Upload, BarChart3, Phone, MapPin, Bell, ChevronDown, User, LogOut, Menu, X } from "lucide-react"
+import { LayoutGrid, Upload, BarChart3, Phone, MapPin, ChevronDown, User, LogOut, Menu, X } from "lucide-react"
 import { apiFetch } from "@/lib/api"
 import type { CurrentUser } from "@/lib/types"
 import { ThemeToggle } from "@/components/theme-toggle"
@@ -160,10 +160,6 @@ export function AppLayout() {
 
           <div className="ml-auto flex items-center gap-2">
             <ThemeToggle />
-            <Button variant="outline" size="icon" className="relative" aria-label="Notifications">
-              <Bell className="size-4.5" />
-              <span className="absolute top-1.5 right-2 size-1.5 rounded-full bg-status-npa" />
-            </Button>
             <div className="h-6 w-px bg-border" />
             <DropdownMenu>
               <DropdownMenuTrigger className="flex items-center gap-2 rounded-lg px-2 py-1 hover:bg-muted">
