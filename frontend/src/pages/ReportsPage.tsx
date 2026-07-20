@@ -29,6 +29,7 @@ import {
 } from "@/components/ui/table"
 import { RecoveryTrendChart } from "@/components/reports/recovery-trend-chart"
 import { OutcomeDonut } from "@/components/reports/outcome-donut"
+import { Skeleton } from "@/components/ui/skeleton"
 import { Download, AlertTriangle, Check } from "lucide-react"
 
 const BUCKET_TEXT_CLASSES: Record<string, string> = {
@@ -301,7 +302,40 @@ export default function ReportsPage() {
   )
 
   if (isLoading) {
-    return <div className="py-16 text-center text-muted-foreground">Loading report...</div>
+    return (
+      <div className="space-y-4">
+        <div className="flex flex-wrap items-end justify-between gap-3">
+          <div className="space-y-2">
+            <Skeleton className="h-6 w-56" />
+            <Skeleton className="h-3.5 w-40" />
+          </div>
+          <Skeleton className="h-8 w-56 rounded-lg" />
+        </div>
+        <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+          {Array.from({ length: 4 }, (_, i) => (
+            <Card key={i}>
+              <CardContent className="space-y-2 py-3.5">
+                <Skeleton className="h-3 w-24" />
+                <Skeleton className="h-6 w-16" />
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+        <Card>
+          <CardContent className="space-y-3 py-4.5">
+            <Skeleton className="h-4 w-32" />
+            <Skeleton className="h-[170px] w-full" />
+          </CardContent>
+        </Card>
+        <Card className="overflow-hidden py-0">
+          <div className="space-y-2.5 p-5">
+            {Array.from({ length: 5 }, (_, i) => (
+              <Skeleton key={i} className="h-8 w-full" />
+            ))}
+          </div>
+        </Card>
+      </div>
+    )
   }
 
   const rangeControl = <DateRangeControl value={range} onChange={setRange} />
@@ -408,13 +442,29 @@ export default function ReportsPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {isLoadingAssignments && (
-                <TableRow>
-                  <TableCell colSpan={6} className="py-6 text-center text-muted-foreground">
-                    Loading…
-                  </TableCell>
-                </TableRow>
-              )}
+              {isLoadingAssignments &&
+                Array.from({ length: 3 }, (_, i) => (
+                  <TableRow key={i}>
+                    <TableCell className="pl-5">
+                      <Skeleton className="h-3.5 w-24" />
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <Skeleton className="ml-auto h-3.5 w-6" />
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <Skeleton className="ml-auto h-3.5 w-6" />
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <Skeleton className="ml-auto h-3.5 w-6" />
+                    </TableCell>
+                    <TableCell>
+                      <Skeleton className="h-1.5 w-full rounded-full" />
+                    </TableCell>
+                    <TableCell className="pr-5 text-right">
+                      <Skeleton className="ml-auto h-3.5 w-6" />
+                    </TableCell>
+                  </TableRow>
+                ))}
               {!isLoadingAssignments && tcRows.length === 0 && (
                 <TableRow>
                   <TableCell colSpan={6} className="py-6 text-center text-muted-foreground">
@@ -422,7 +472,7 @@ export default function ReportsPage() {
                   </TableCell>
                 </TableRow>
               )}
-              {tcRows.map((r) => (
+              {!isLoadingAssignments && tcRows.map((r) => (
                 <TableRow key={r.name}>
                   <TableCell className="pl-5 font-semibold">{r.name}</TableCell>
                   <TableCell className="text-right font-mono">{r.assigned}</TableCell>
@@ -456,13 +506,26 @@ export default function ReportsPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {isLoadingAssignments && (
-                <TableRow>
-                  <TableCell colSpan={5} className="py-6 text-center text-muted-foreground">
-                    Loading…
-                  </TableCell>
-                </TableRow>
-              )}
+              {isLoadingAssignments &&
+                Array.from({ length: 3 }, (_, i) => (
+                  <TableRow key={i}>
+                    <TableCell className="pl-5">
+                      <Skeleton className="h-3.5 w-24" />
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <Skeleton className="ml-auto h-3.5 w-6" />
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <Skeleton className="ml-auto h-3.5 w-6" />
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <Skeleton className="ml-auto h-3.5 w-14" />
+                    </TableCell>
+                    <TableCell className="pr-5 text-right">
+                      <Skeleton className="ml-auto h-5 w-8 rounded-full" />
+                    </TableCell>
+                  </TableRow>
+                ))}
               {!isLoadingAssignments && faRows.length === 0 && (
                 <TableRow>
                   <TableCell colSpan={5} className="py-6 text-center text-muted-foreground">
@@ -470,7 +533,7 @@ export default function ReportsPage() {
                   </TableCell>
                 </TableRow>
               )}
-              {faRows.map((r) => (
+              {!isLoadingAssignments && faRows.map((r) => (
                 <TableRow key={r.name}>
                   <TableCell className="pl-5 font-semibold">{r.name}</TableCell>
                   <TableCell className="text-right font-mono">{r.assigned}</TableCell>

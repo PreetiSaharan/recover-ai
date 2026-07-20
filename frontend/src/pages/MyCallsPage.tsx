@@ -7,6 +7,7 @@ import type { AssignmentRecord, Borrower, InteractionLog, PriorityAction, SmaBuc
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { DateRangeControl, CustomDateRangeInputs } from "@/components/date-range-control"
+import { ListCardSkeleton } from "@/components/list-card-skeleton"
 import { type RangeOption, todayStr, addDays, computeRange, isWithinRange, rangeLabel } from "@/lib/date-range"
 import { CheckCircle2, Circle } from "lucide-react"
 
@@ -197,7 +198,7 @@ export default function MyCallsPage() {
       </div>
 
       <div className="flex flex-col gap-2.5">
-        {isLoading && <div className="py-10 text-center text-muted-foreground">Loading your calls...</div>}
+        {isLoading && <ListCardSkeleton count={5} />}
         {!isLoading && filtered.length === 0 && (
           <div className="py-10 text-center text-muted-foreground">
             {totalN === 0

@@ -8,6 +8,7 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { DateRangeControl, CustomDateRangeInputs } from "@/components/date-range-control"
+import { ListCardSkeleton } from "@/components/list-card-skeleton"
 import { type RangeOption, todayStr, addDays, computeRange, isWithinRange, rangeLabel } from "@/lib/date-range"
 import { LogOutcomeDialog } from "@/components/log-outcome-dialog"
 import { MapPin } from "lucide-react"
@@ -218,7 +219,11 @@ export default function MyCasesPage() {
         </CardContent>
       </Card>
 
-      {isLoading && <div className="py-10 text-center text-muted-foreground">Loading your cases...</div>}
+      {isLoading && (
+        <div className="flex flex-col gap-2.5">
+          <ListCardSkeleton count={5} />
+        </div>
+      )}
 
       {!isLoading && totalN === 0 && (
         <div className="py-10 text-center text-muted-foreground">

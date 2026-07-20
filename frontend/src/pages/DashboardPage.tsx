@@ -25,6 +25,7 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import { Card, CardContent } from "@/components/ui/card"
+import { Skeleton } from "@/components/ui/skeleton"
 import { Search, Sparkles, Upload, ChevronLeft, ChevronRight } from "lucide-react"
 
 const SMA_BUCKETS: SmaBucket[] = ["SMA-0", "SMA-1", "SMA-2", "NPA"]
@@ -465,13 +466,39 @@ export default function DashboardPage() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {isLoading && (
-              <TableRow>
-                <TableCell colSpan={9} className="py-8 text-center text-muted-foreground">
-                  Loading borrowers...
-                </TableCell>
-              </TableRow>
-            )}
+            {isLoading &&
+              Array.from({ length: 8 }, (_, i) => (
+                <TableRow key={i}>
+                  <TableCell>
+                    <Skeleton className="size-4" />
+                  </TableCell>
+                  <TableCell>
+                    <Skeleton className="h-3.5 w-4" />
+                  </TableCell>
+                  <TableCell>
+                    <Skeleton className="h-3.5 w-32" />
+                    <Skeleton className="mt-1.5 h-3 w-20" />
+                  </TableCell>
+                  <TableCell className="text-right">
+                    <Skeleton className="ml-auto h-3.5 w-8" />
+                  </TableCell>
+                  <TableCell className="text-right">
+                    <Skeleton className="ml-auto h-3.5 w-16" />
+                  </TableCell>
+                  <TableCell>
+                    <Skeleton className="h-5 w-14 rounded-full" />
+                  </TableCell>
+                  <TableCell>
+                    <Skeleton className="h-5 w-20 rounded-full" />
+                  </TableCell>
+                  <TableCell>
+                    <Skeleton className="h-7 w-28 rounded-lg" />
+                  </TableCell>
+                  <TableCell>
+                    <Skeleton className="h-5 w-16 rounded-full" />
+                  </TableCell>
+                </TableRow>
+              ))}
             {!isLoading && pagedRows.length === 0 && (
               <TableRow>
                 <TableCell colSpan={9} className="py-14 text-center">
